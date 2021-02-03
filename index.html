@@ -1,0 +1,91 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+<title>csvbeauty</title>
+<script type="module">
+import { CSV } from "https://code4sabae.github.io/js/CSV.js";
+import { SJIS } from "https://code4sabae.github.io/js/SJIS.js";
+
+const waitDrop = async (div) => {
+    div.innerHTML = "CSVファイルをドロップしてください";
+    return new Promise(resolve => {
+        div.ondrop = div.ondragover = async (e) => {
+            e.preventDefault();
+            if (e.type !== "drop") {
+                return;
+            }
+            const item = e.dataTransfer.items[0];
+            div.ondrop = div.ondragover = null;
+            resolve(item);
+        };
+    });
+};
+const readAsArrayBufferAsync = async (file) => {
+    return new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const bin = e.target.result;
+            resolve(bin);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+};
+const waitDropCSV = async (div) => {
+    for (;;) {
+        const item = await waitDrop(divmain);
+        try {
+            if (item.type !== "text/csv") {
+                alert("ファイル形式が違います。CSVファイルをドロップしてください。")
+                continue;
+            }
+            const file = item.getAsFile();
+            const bin = await readAsArrayBufferAsync(file);
+            const data = SJIS.decodeAuto(new Uint8Array(bin));
+            const csv = CSV.decode(data);
+            return [csv, file.name];
+        } catch (e) {
+            console.log(e);
+            alert("CSVファイルの読み込みに失敗しました。データが正常かご確認ください。");
+        }
+    }
+};
+const downloadBlob = async (fn, blob) => {
+  const link = document.createElement("a");
+  const dataurl = URL.createObjectURL(blob);
+  link.href = dataurl;
+  link.download = fn;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+};
+window.onload = async () => {
+    const [csv, fn] = await waitDropCSV(divmain);
+    const scsv = CSV.encode(csv);
+    const blob = new Blob([scsv], { type: "text/csv" });
+    downloadBlob(fn, blob);
+};
+</script>
+</head>
+<body>
+    
+<div class="jumbotron">
+    <h1 class="display-4">csvbeauty</h1>
+    <p class="lead">CSVファイルをBOM付きUTF-8に変換します</p>
+</div>
+
+<div class="mx-5">
+    <div id="divmain" class="border px-2 mx-auto pt-3 pb-3">
+    </div>
+</div>
+
+<footer class="text-muted">
+  <div class="container my-4 mx-0">
+    <p>Design: <a href="https://getbootstrap.com/">Bootstrap</a> by <a href="https://twitter.com/mdo">@mdo</a></p>
+    <p>App: CC BY <a href="https://fukuno.jig.jp/3115">福野泰介の一日一創</a> by <a href="https://twitter.com/taisukef">@taisukef</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
