@@ -7,64 +7,38 @@
 <script type="module">
 import { CSV } from "https://code4sabae.github.io/js/CSV.js";
 import { SJIS } from "https://code4sabae.github.io/js/SJIS.js";
+import { downloadZip } from "https://code4sabae.github.io/js/downloadZip.js";
+import { waitDropFiles } from "https://code4sabae.github.io/js/waitDropFiles.js";
+import { downloadTextFile } from "https://code4sabae.github.io/js/downloadTextFile.js";
+import { readAsArrayBufferAsync } from "https://code4sabae.github.io/js/readAsArrayBufferAsync.js";
 
-const waitDrop = async (div) => {
-    div.innerHTML = "CSVファイルをドロップしてください";
-    return new Promise(resolve => {
-        div.ondrop = div.ondragover = async (e) => {
-            e.preventDefault();
-            if (e.type !== "drop") {
-                return;
-            }
-            const item = e.dataTransfer.items[0];
-            div.ondrop = div.ondragover = null;
-            resolve(item);
-        };
-    });
-};
-const readAsArrayBufferAsync = async (file) => {
-    return new Promise(resolve => {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const bin = e.target.result;
-            resolve(bin);
-        };
-        reader.readAsArrayBuffer(file);
-    });
-};
-const waitDropCSV = async (div) => {
-    for (;;) {
-        const item = await waitDrop(divmain);
+window.onload = async () => {
+    divmain.innerHTML = "CSVファイルをドロップしてください";
+    const items = await waitDropFiles(divmain);
+    const files = [];
+    for (const item of items) {
+        if (item.type !== "text/csv") {
+            alert("ファイル形式が違います。CSVファイルをドロップしてください。")
+            return;
+        }
         try {
-            if (item.type !== "text/csv") {
-                alert("ファイル形式が違います。CSVファイルをドロップしてください。")
-                continue;
-            }
-            const file = item.getAsFile();
+            const file = item.file;
             const bin = await readAsArrayBufferAsync(file);
             const data = SJIS.decodeAuto(new Uint8Array(bin));
             const csv = CSV.decode(data);
-            return [csv, file.name];
+            const scsv = CSV.encode(csv);
+            files.push({ name: file.name, data: scsv });
         } catch (e) {
             console.log(e);
             alert("CSVファイルの読み込みに失敗しました。データが正常かご確認ください。");
+            return;
         }
     }
-};
-const downloadBlob = async (fn, blob) => {
-  const link = document.createElement("a");
-  const dataurl = URL.createObjectURL(blob);
-  link.href = dataurl;
-  link.download = fn;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-};
-window.onload = async () => {
-    const [csv, fn] = await waitDropCSV(divmain);
-    const scsv = CSV.encode(csv);
-    const blob = new Blob([scsv], { type: "text/csv" });
-    downloadBlob(fn, blob);
+    if (files.length == 1) {
+        downloadTextFile(files[0]);
+    } else {
+        downloadZip("csvs.zip", files);
+    }
 };
 </script>
 </head>
@@ -72,11 +46,11 @@ window.onload = async () => {
     
 <div class="jumbotron">
     <h1 class="display-4">csvbeauty</h1>
-    <p class="lead">CSVファイルをBOM付きUTF-8に変換します</p>
+    <p class="lead">CSVファイルをBOM付きUTF-8に変換します（まとめて変換対応）</p>
 </div>
 
 <div class="mx-5">
-    <div id="divmain" class="border px-2 mx-auto pt-3 pb-3">
+    <div id="divmain" class="border px-5 mx-auto pt-3 pb-3">
     </div>
 </div>
 
