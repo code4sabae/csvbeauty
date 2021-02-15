@@ -12,32 +12,100 @@ import { waitDropFiles } from "https://code4sabae.github.io/js/waitDropFiles.js"
 import { downloadTextFile } from "https://code4sabae.github.io/js/downloadTextFile.js";
 import { readAsArrayBufferAsync } from "https://code4sabae.github.io/js/readAsArrayBufferAsync.js";
 
-window.onload = async () => {
-    divmain.innerHTML = "CSVファイルをドロップしてください";
-    const items = await waitDropFiles(divmain);
-    const files = [];
-    for (const item of items) {
-        if (item.type !== "text/csv") {
-            alert("ファイル形式が違います。CSVファイルをドロップしてください。")
-            return;
+const saveCheckboxState = (chk) => {
+    chk.checked = localStorage.getItem("saveCheckboxState." + chk.id) == "true";
+    chk.addEventListener("change", () => {
+        localStorage.setItem("saveCheckboxState." + chk.id, chk.checked.toString());
+    });
+};
+
+const removeComma = (v) => {
+    return v.toString().trim().replace(/\,/g, "");
+};
+const addComma = (v) => {
+    //return parseFloat(v).toLocaleString("en-US", { maximumFractionDigits: 0 }); // 整数化
+    return parseFloat(v).toLocaleString("en-US");
+};
+
+/*
+console.log(addComma(100000000));
+console.log(addComma(100000000.123));
+console.log(removeComma("100,000,000"));
+*/
+
+const removeCommaCSV = (csv) => {
+    for (let i = 0; i < csv.length; i++) {
+        const line = csv[i];
+        for (let j = 0; j < line.length; j++) {
+            const v = line[j].trim();
+            const rv = removeComma(v);
+            if (!isNaN(parseFloat(rv)) && addComma(rv) == v) {
+                line[j] = rv;
+            }
         }
-        try {
+    }
+};
+const trimWhiteSpaceCSV = (csv) => {
+    for (let i = 0; i < csv.length; i++) {
+        const line = csv[i];
+        for (let j = 0; j < line.length; j++) {
+            line[j] = line[j].trim();
+        }
+    }
+};
+
+window.onload = async () => {
+    saveCheckboxState(trimwhitespace);
+    saveCheckboxState(removecomma);
+
+    for (;;) {
+        divmain.innerHTML = "CSVファイルをドロップしてください";
+        const items = await waitDropFiles(divmain);
+        const files = [];
+        for (const item of items) {
+            console.log(item.type);
+            if (item.type !== "text/csv" && item.type !== "application/json") {
+                alert("ファイル形式が違います。CSVファイルをドロップしてください。")
+                return;
+            }
             const file = item.file;
             const bin = await readAsArrayBufferAsync(file);
             const data = SJIS.decodeAuto(new Uint8Array(bin));
-            const csv = CSV.decode(data);
-            const scsv = CSV.encode(csv);
-            files.push({ name: file.name, data: scsv });
-        } catch (e) {
-            console.log(e);
-            alert("CSVファイルの読み込みに失敗しました。データが正常かご確認ください。");
-            return;
+            if (item.type == "text/csv") {
+                try {
+                    const csv = CSV.decode(data);
+                    if (trimwhitespace.checked) {
+                        trimWhiteSpaceCSV(csv);
+                    }
+                    if (removecomma.checked) {
+                        removeCommaCSV(csv);
+                    }
+                    const scsv = CSV.encode(csv);
+                    files.push({ name: file.name, data: scsv });
+                } catch (e) {
+                    console.log(e);
+                    alert("CSVファイルの読み込みに失敗しました。データが正常かご確認ください。");
+                    return;
+                }
+            } else {
+                try {
+                    const json = JSON.parse(data);
+                    const csv = CSV.fromJSON(json);
+                    const scsv = CSV.encode(csv);
+                    const name = file.name.substring(0, file.name.length - 4) + "csv";
+                    files.push({ name, data: scsv });
+                } catch (e) {
+                    console.log(e);
+                    alert("JSONファイルの読み込みに失敗しました。データが正常かご確認ください。");
+                    return;
+                }
+            }
         }
-    }
-    if (files.length == 1) {
-        downloadTextFile(files[0]);
-    } else {
-        downloadZip("csvs.zip", files);
+        if (files.length == 1) {
+            downloadTextFile(files[0]);
+        } else {
+            downloadZip("csvs.zip", files);
+        }
     }
 };
 </script>
@@ -46,12 +114,13 @@ window.onload = async () => {
     
 <div class="jumbotron">
     <h1 class="display-4">csvbeauty</h1>
-    <p class="lead">CSVファイルをBOM付きUTF-8に変換します（まとめて変換対応）</p>
+    <p class="lead">CSVファイルをBOM付きUTF-8に変換します（まとめて変換、JSONファイル対応）</p>
 </div>
 
 <div class="mx-5">
-    <div id="divmain" class="border px-5 mx-auto pt-3 pb-3">
-    </div>
+    <div id="divmain" class="border px-5 mx-auto pt-3 pb-3"></div>
+    <label><input type="checkbox" id="trimwhitespace" class="m-3">値前後の空白を削除</label>
+    <label><input type="checkbox" id="removecomma" class="m-3">コンマ入り数値のコンマを削除</label>
 </div>
 
 <footer class="text-muted">
