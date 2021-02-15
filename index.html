@@ -13,7 +13,10 @@ import { downloadTextFile } from "https://code4sabae.github.io/js/downloadTextFi
 import { readAsArrayBufferAsync } from "https://code4sabae.github.io/js/readAsArrayBufferAsync.js";
 
 const saveCheckboxState = (chk) => {
-    chk.checked = localStorage.getItem("saveCheckboxState." + chk.id) == "true";
+    const v = localStorage.getItem("saveCheckboxState." + chk.id);
+    if (v !== null) {
+        chk.checked = v == "true";
+    }
     chk.addEventListener("change", () => {
         localStorage.setItem("saveCheckboxState." + chk.id, chk.checked.toString());
     });
