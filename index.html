@@ -66,15 +66,15 @@ window.onload = async () => {
         const items = await waitDropFiles(divmain);
         const files = [];
         for (const item of items) {
-            console.log(item.type);
-            if (item.type !== "text/csv" && item.type !== "application/json") {
+            // console.log(item.type); // ignore item.type in Windows
+            if (!(item.file.name.endsWith(".csv") || item.file.name.endsWith(".json"))) {
                 alert("ファイル形式が違います。CSVファイルをドロップしてください。")
                 return;
             }
             const file = item.file;
             const bin = await readAsArrayBufferAsync(file);
             const data = SJIS.decodeAuto(new Uint8Array(bin));
-            if (item.type == "text/csv") {
+            if (item.file.name.endsWith(".csv")) {
                 try {
                     const csv = CSV.decode(data);
                     if (trimwhitespace.checked) {
@@ -129,7 +129,7 @@ window.onload = async () => {
 <footer class="text-muted">
   <div class="container my-4 mx-0">
     <p>Design: <a href="https://getbootstrap.com/">Bootstrap</a> by <a href="https://twitter.com/mdo">@mdo</a></p>
-    <p>App: CC BY <a href="https://fukuno.jig.jp/3115">福野泰介の一日一創</a> by <a href="https://twitter.com/taisukef">@taisukef</a></p>
+    <p>App: CC BY <a href="https://fukuno.jig.jp/3115">福野泰介の一日一創</a> by <a href="https://twitter.com/taisukef">@taisukef</a> (<a href=https://github.com/code4sabae/csvbeauty/>src on GitHub</a>)</p>
   </div>
 </footer>
 
