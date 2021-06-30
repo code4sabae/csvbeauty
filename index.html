@@ -17,6 +17,7 @@ import { downloadZip } from "https://code4sabae.github.io/js/downloadZip.js";
 import { waitDropFiles } from "https://code4sabae.github.io/js/waitDropFiles.js";
 import { downloadTextFile } from "https://code4sabae.github.io/js/downloadTextFile.js";
 import { readAsArrayBufferAsync } from "https://code4sabae.github.io/js/readAsArrayBufferAsync.js";
+import { JISX0213 } from "https://code4fukui.github.io/mojikiban/JISX0213.js";
 
 const saveCheckboxState = (chk) => {
     const v = localStorage.getItem("saveCheckboxState." + chk.id);
@@ -62,10 +63,58 @@ const trimWhiteSpaceCSV = (csv) => {
         }
     }
 };
+const isNullLine = (csvline) => {
+    let cnt = 0;
+    for (let i = 0; i < csvline.length; i++) {
+        cnt += csvline[i].length;
+    }
+    return cnt == 0;
+};
+const removeNullLine = (csv) => {
+    const csv2 = [];
+    for (let i = 0; i < csv.length; i++) {
+        const line = csv[i];
+        if (!isNullLine(line)) {
+            csv2.push(line);
+        }
+    }
+    return csv2;
+};
+const removeNullRow = (csv) => {
+    let nrow = csv[0].length - 1;
+    A: for (; nrow >= 0; nrow--) {
+        for (let j = 0; j < csv.length; j++) {
+            if (csv[j][nrow].length != 0) {
+                break A;
+            }
+        }
+    }
+    nrow++;
+
+    for (let i = 0; i < csv.length; i++) {
+        csv[i].splice(nrow, csv[i].length - nrow);
+    }
+    return csv;
+};
+
+const shrinkToJISX0213 = (csv) => {
+    for (let i = 0; i < csv.length; i++) {
+        const line = csv[i];
+        for (let j = 0; j < line.length; j++) {
+            line[j] = JISX0213.shrink(line[j]);
+            if (!JISX0213.isValid(line[j])) {
+                throw new Error(line[j] + " is not valid JIS X 0213");
+            }
+        }
+    }
+};
 
 window.onload = async () => {
     saveCheckboxState(trimwhitespace);
     saveCheckboxState(removecomma);
+    saveCheckboxState(removenullline);
+    saveCheckboxState(removenullrow);
+    saveCheckboxState(shrink2jisx0213);
 
     for (;;) {
         divmain.innerHTML = "CSVファイルをドロップしてください";
@@ -82,18 +131,27 @@ window.onload = async () => {
             const data = SJIS.decodeAuto(new Uint8Array(bin));
             if (item.file.name.endsWith(".csv")) {
                 try {
-                    const csv = CSV.decode(data);
+                    let csv = CSV.decode(data);
                     if (trimwhitespace.checked) {
                         trimWhiteSpaceCSV(csv);
                     }
                     if (removecomma.checked) {
                         removeCommaCSV(csv);
                     }
+                    if (removenullline.checked) {
+                        csv = removeNullLine(csv);
+                    }
+                    if (removenullrow.checked) {
+                        csv = removeNullRow(csv);
+                    }
+                    if (shrink2jisx0213.checked) {
+                        shrinkToJISX0213(csv);
+                    }
                     const scsv = CSV.encode(csv);
                     files.push({ name: file.name, data: scsv });
                 } catch (e) {
                     console.log(e);
-                    alert("CSVファイルの読み込みに失敗しました。データが正常かご確認ください。");
+                    alert("CSVファイルの読み込みや変換に失敗しました。データが正常かご確認ください。");
                     return;
                 }
             } else {
@@ -128,8 +186,11 @@ window.onload = async () => {
 
 <div class="mx-5">
     <div id="divmain" class="border px-5 mx-auto pt-3 pb-3"></div>
-    <label><input type="checkbox" id="trimwhitespace" class="m-3">値前後の空白を削除</label>
-    <label><input type="checkbox" id="removecomma" class="m-3">コンマ入り数値のコンマを削除</label>
+    <label><input type="checkbox" id="trimwhitespace" class="m-3">値前後の空白削除</label>
+    <label><input type="checkbox" id="removecomma" class="m-3">コンマ入り数値のコンマ削除</label>
+    <label><input type="checkbox" id="removenullline" class="m-3">空行削除</label>
+    <label><input type="checkbox" id="removenullrow" class="m-3">空列削除</label>
+    <label><input type="checkbox" id="shrink2jisx0213" class="m-3"><a href=https://github.com/code4fukui/BaseRegistry/blob/main/%E7%94%A8%E8%AA%9E.md#jis-x-0213>JIS X 0213</a>に縮退β</label>
 </div>
 
 <footer class="text-muted">
